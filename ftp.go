@@ -612,6 +612,13 @@ func (c *ServerConn) cmd(expected int, format string, args ...interface{}) (int,
 	return c.conn.ReadResponse(expected)
 }
 
+// RawCommand sends command as-is and accepts any 2xx status as success.
+// The caller supplies the full command line, e.g. "SITE RCMD ..." or "QUOTE RCMD ...".
+// Returns the response status code and message text.
+func (c *ServerConn) RawCommand(command string) (int, string, error) {
+	return c.cmd(2, "%s", command)
+}
+
 // cmdDataConnFrom executes a command which require a FTP data connection.
 // Issues a REST FTP command to specify the number of bytes to skip for the transfer.
 func (c *ServerConn) cmdDataConnFrom(offset uint64, format string, args ...interface{}) (net.Conn, error) {
