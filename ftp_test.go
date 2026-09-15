@@ -52,3 +52,61 @@ func TestEPSV_Parse_MissingPortBetweenPipes_ShouldError(t *testing.T) {
 		t.Fatalf("expected error for malformed EPSV response, got nil")
 	}
 }
+
+func TestRawCommand(t *testing.T) {
+	tests := []struct {
+		name        string
+		command     string
+		closeBefore bool // simulate a connection error before sending the command
+		wantCode    int
+		wantMsg     string
+		wantErr     bool
+	}{
+		{
+			name:     "success",
+			command:  "NOOP",
+			wantCode: StatusCommandOK,
+			wantMsg:  "NOOP ok.",
+		},
+		{
+			name:     "non-2xx response",
+			command:  "BOGUS",
+			wantCode: StatusBadCommand,
+			wantMsg:  "Unknown command BOGUS.",
+			wantErr:  true,
+		},
+		{
+			name:        "connection error",
+			command:     "NOOP",
+			closeBefore: true,
+			wantErr:     true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mock, c := openConn(t, "127.0.0.1")
+
+			if tc.closeBefore {
+				if err := c.Quit(); err != nil {
+					t.Fatalf("closing connection ahead of test: %s", err)
+				}
+				mock.Wait()
+			}
+
+			code, msg, err := c.RawCommand(tc.command)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantCode, code)
+			assert.Equal(t, tc.wantMsg, msg)
+
+			if !tc.closeBefore {
+				closeConn(t, mock, c, []string{tc.command})
+			}
+		})
+	}
+}
